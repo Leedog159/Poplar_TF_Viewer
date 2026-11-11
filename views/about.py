@@ -8,7 +8,7 @@ from views.common import FULL_DATASETS, cards, full_dataset_getter, load_data, p
 DOI = ""
 PREPRINT_URL = ""
 LAB_URL = ""
-GITHUB_URL = ""
+GITHUB_URL = "https://github.com/Leedog159/Poplar_TF_Viewer"
 DATA_URL = ""          # Zenodo / supplementary tables
 
 CONTACTS = [  # (name, role, email)

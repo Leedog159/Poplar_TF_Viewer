@@ -8,7 +8,9 @@ exports AD calls, sequences, and full datasets.
 
 ## Live access
 
-**[Live Web App](https://share.streamlit.io/...)** (link coming soon)
+**[Live Web App](https://poplartfviewer.streamlit.app/)** · <https://poplartfviewer.streamlit.app/>
+
+Source code: <https://github.com/Leedog159/Poplar_TF_Viewer>
 
 ## Features
 
@@ -29,8 +31,8 @@ Requires **Python ≥ 3.10**. Tested with Python 3.10 and Streamlit 1.56 / 1.65.
 **Step 1: Clone the repository**
 
 ```bash
-git clone https://github.com/<org>/<repo>.git
-cd <repo>
+git clone https://github.com/Leedog159/Poplar_TF_Viewer.git
+cd Poplar_TF_Viewer
 ```
 
 **Step 2: Create and activate a Conda environment**
@@ -54,6 +56,9 @@ The app opens at <http://localhost:8501>. The first load reads about 140 MB of d
 seconds; later page changes are cached.
 
 ## Deploying to Streamlit Community Cloud
+
+The production app at <https://poplartfviewer.streamlit.app/> is deployed from
+[Leedog159/Poplar_TF_Viewer](https://github.com/Leedog159/Poplar_TF_Viewer). To set up a new deployment:
 
 1. Push the repository, including `data_for_viewer/`, to GitHub.
 2. On [share.streamlit.io](https://share.streamlit.io), create an app from the repo with
