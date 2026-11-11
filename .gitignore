@@ -1,0 +1,19 @@
+# Unreferenced data/scripts kept for provenance (not used by the app)
+_archive/
+
+# Streamlit secrets and on-disk cache (the cache regenerates automatically)
+.streamlit/secrets.toml
+.streamlit/cache/
+
+# Python
+__pycache__/
+*.pyc
+*.pyo
+.venv/
+venv/
+
+# Notebook / editor / OS clutter
+.ipynb_checkpoints/
+*-checkpoint.*
+.DS_Store
+Thumbs.db

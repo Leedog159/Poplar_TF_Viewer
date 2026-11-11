@@ -1,0 +1,7 @@
+# Poplar TF Activation Domain Atlas — runtime dependencies (Python >= 3.10)
+# Tested with: streamlit 1.56.0, pandas 2.3.3, numpy 2.2.6, plotly 5.24.1, Python 3.10
+streamlit>=1.56,<2      # st.navigation, st.context.theme, deferred download_button data, width="stretch"
+pandas>=2.2,<3          # reads the pickled prediction tables
+numpy>=1.26,<3
+plotly>=5.19,<6         # rounded bar corners (marker.cornerradius)
+openpyxl>=3.1           # optional: only used if the CDS tables are supplied as .xlsx instead of .csv
