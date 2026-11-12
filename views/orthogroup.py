@@ -6,7 +6,8 @@ from plotly.subplots import make_subplots
 
 from data_loader import AD_THRESHOLD
 from plots import BAR_TEXT, COLORS, FONT, PLOTLY_CONFIG, SPECIES_TAG, color, region_labels, style_figure
-from views.common import (active_gene, cards, family_counts, gene_ids, is_dark_theme, kept, load_data,
+from views.common import (ACTIVITY_ALL, ACTIVITY_FILTERS, active_gene, activity_matches, bulk_results, cards,
+                          export_section, family_counts, gene_ids, is_dark_theme, kept, load_data,
                           orthogroup_summary, page_header, restore, save, set_active_gene, species_tag,
                           status_tag)
 
@@ -19,26 +20,33 @@ RESIDUE = "Residue Coordinates (Ungapped)"
 def _select_gene(data) -> str:
     current = data.get(active_gene(data))
     restore("og_family", ALL)
+    restore("og_activity", ACTIVITY_ALL)
     if kept("og_gene") != current.gene_id:  # gene chosen on another page takes over
         if st.session_state["og_family"] not in (ALL, current.family):
             st.session_state["og_family"] = ALL
+        if not activity_matches(st.session_state["og_activity"], current):
+            st.session_state["og_activity"] = ACTIVITY_ALL
         st.session_state["og_gene"] = current.gene_id
 
-    counts = family_counts(None)  # both species combined
+    # Family | Activity | Gene ID on one row; activity is read first (it sets the family options).
+    c_fam, c_act, c_gene = st.columns([1, 1, 2])
+    activity = c_act.selectbox("Filter by Activity", list(ACTIVITY_FILTERS), key="og_activity")
+    activator = ACTIVITY_FILTERS[activity]
+
+    counts = family_counts(None, activator)  # both species combined
     fam_options = [ALL] + list(counts)
     if st.session_state["og_family"] not in fam_options:
         st.session_state["og_family"] = ALL
     total = sum(counts.values())
-    c1, c2 = st.columns([1, 2])
-    family = c1.selectbox("Filter by Family", fam_options, key="og_family",
-                          format_func=lambda f: f"{ALL} ({total})" if f == ALL else f"{f} ({counts[f]})")
-    ids = gene_ids(None, None if family == ALL else family)
+    family = c_fam.selectbox("Filter by Family", fam_options, key="og_family",
+                             format_func=lambda f: f"{ALL} ({total})" if f == ALL else f"{f} ({counts[f]})")
+    ids = gene_ids(None, None if family == ALL else family, activator)
     if st.session_state.get("og_gene") not in ids:
         st.session_state["og_gene"] = current.gene_id if current.gene_id in ids else ids[0]
-    gene_id = c2.selectbox(f"Poplar or Arabidopsis gene ID ({len(ids)} shown, type to search)", ids,
-                           key="og_gene")
+    gene_id = c_gene.selectbox(f"Poplar or Arabidopsis gene ID ({len(ids)} shown, type to search)", ids,
+                               key="og_gene")
     set_active_gene(gene_id)
-    save("og_family", "og_gene")
+    save("og_family", "og_activity", "og_gene")
     return gene_id
 
 
@@ -203,3 +211,7 @@ def render():
         "Max pred": st.column_config.NumberColumn("Peak score (z)", format="%.2f"),
         "# ADs": st.column_config.NumberColumn("# ADs"),
     })
+
+    # Same cached pipeline as Bulk Lookup, so the files match a Bulk Lookup of these members exactly.
+    df, csv_bytes, fastas, _ = bulk_results(tuple(og.members))
+    export_section(df, csv_bytes, fastas, file_prefix=f"orthogroup_{og.query}_")

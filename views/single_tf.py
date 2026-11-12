@@ -7,8 +7,9 @@ from plotly.subplots import make_subplots
 from data_loader import AD_MIN_LEN, AD_THRESHOLD, MORFFY_URL
 from plots import (BAR_TEXT, COLORS, DISORDER_CUTOFF, FONT, PLOTLY_CONFIG, color, region_labels, runs,
                    style_figure)
-from views.common import (active_gene, family_counts, gene_cards, gene_ids, is_dark_theme, kept, load_data,
-                          page_header, restore, save, set_active_gene)
+from views.common import (ACTIVITY_ALL, ACTIVITY_FILTERS, active_gene, activity_matches, family_counts,
+                          gene_cards, gene_ids, is_dark_theme, kept, load_data, page_header, restore, save,
+                          set_active_gene)
 
 ALL = "All Families"
 
@@ -17,30 +18,38 @@ def _select_gene(data) -> str:
     current = data.get(active_gene(data))
     restore("single_species", current.species)
     restore("single_family", ALL)
+    restore("single_activity", ACTIVITY_ALL)
     # A gene selected on another page (e.g. "View in TF Viewer") takes over:
-    # switch species if needed and drop a family filter that would hide it.
+    # switch species if needed and drop family / activity filters that would hide it.
     if kept("single_gene") != current.gene_id:
         st.session_state["single_species"] = current.species
         if st.session_state["single_family"] not in (ALL, current.family):
             st.session_state["single_family"] = ALL
+        if not activity_matches(st.session_state["single_activity"], current):
+            st.session_state["single_activity"] = ACTIVITY_ALL
         st.session_state["single_gene"] = current.gene_id
     species = st.radio("Species", ["Poplar", "Arabidopsis"], horizontal=True, key="single_species")
 
-    counts = family_counts(species)
+    # Family | Activity | Gene ID on one row. Activity is read first because it decides which
+    # families (and counts) the family dropdown offers; the filters combine with AND.
+    c_fam, c_act, c_gene = st.columns([1, 1, 2])
+    activity = c_act.selectbox("Filter by Activity", list(ACTIVITY_FILTERS), key="single_activity")
+    activator = ACTIVITY_FILTERS[activity]
+
+    counts = family_counts(species, activator)
     fam_options = [ALL] + list(counts)
     if st.session_state.get("single_family") not in fam_options:
         st.session_state["single_family"] = ALL
     total = sum(counts.values())
-    c1, c2 = st.columns([1, 2])
-    family = c1.selectbox("Filter by Family", fam_options, key="single_family",
-                          format_func=lambda f: f"{ALL} ({total})" if f == ALL else f"{f} ({counts[f]})")
+    family = c_fam.selectbox("Filter by Family", fam_options, key="single_family",
+                             format_func=lambda f: f"{ALL} ({total})" if f == ALL else f"{f} ({counts[f]})")
 
-    ids = gene_ids(species, None if family == ALL else family)
+    ids = gene_ids(species, None if family == ALL else family, activator)
     if st.session_state.get("single_gene") not in ids:
         st.session_state["single_gene"] = current.gene_id if current.gene_id in ids else ids[0]
-    gene_id = c2.selectbox(f"Gene ID ({len(ids)} shown, type to search)", ids, key="single_gene")
+    gene_id = c_gene.selectbox(f"Gene ID ({len(ids)} shown, type to search)", ids, key="single_gene")
     set_active_gene(gene_id)
-    save("single_species", "single_family", "single_gene")
+    save("single_species", "single_family", "single_activity", "single_gene")
     return gene_id
 
 

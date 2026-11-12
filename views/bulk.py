@@ -3,16 +3,9 @@ import streamlit as st
 
 from data_loader import (AD_MIN_LEN, AD_THRESHOLD, BULK_SEQUENCE_COLS, BULK_SUMMARY_COLS,
                          parse_id_file, parse_id_text)
-from views.common import bulk_results, cards, page_header, restore, save
+from views.common import bulk_results, cards, export_section, page_header, restore, save
 
 EXAMPLE = "Potri.001G258700\nPotri.013G113100\nPotri.009G053900\nAT5G12870"
-
-FASTA_BUTTONS = [  # (kind, label, filename)
-    ("ad_aa", "Download AD Peptides (FASTA)", "ad_peptides.fasta"),
-    ("ad_cds", "Download AD CDS (FASTA)", "ad_cds.fasta"),
-    ("protein", "Download Full TF Proteins (FASTA)", "tf_proteins.fasta"),
-    ("cds", "Download Full TF CDS (FASTA)", "tf_cds.fasta"),
-]
 
 # Display labels only; the CSV keeps the raw column names.
 _TXT = st.column_config.TextColumn
@@ -110,27 +103,4 @@ def render():
     st.dataframe(df, hide_index=True, width="stretch", column_config=COLUMN_CONFIG,
                  column_order=BULK_SUMMARY_COLS + (BULK_SEQUENCE_COLS if show_seqs else []))
 
-    st.download_button("📥 Download Summary CSV", csv_bytes, file_name="tf_ad_summary.csv",
-                       mime="text/csv", type="secondary",
-                       help="All columns, including full untruncated sequence columns.")
-
-    with st.expander("📥 FASTA Sequence Downloads", expanded=True):
-        cols = st.columns(2)
-        for i, (kind, label, fname) in enumerate(FASTA_BUTTONS):
-            text_ = fastas[kind]
-            n = text_.count(">")
-            cols[i % 2].download_button(f"{label} · {n}", text_.encode(), file_name=fname,
-                                        mime="text/plain", disabled=not text_, width="stretch",
-                                        key=f"dl_{kind}")
-        n_ads, n_ad_cds = fastas["ad_aa"].count(">"), fastas["ad_cds"].count(">")
-        n_cds_missing = int((~df.CDS_Available).sum())
-        notes = []
-        if not n_ads:
-            notes.append("No ADs were called in the matched genes, so the AD exports are empty.")
-        if n_cds_missing:
-            notes.append(f"{n_cds_missing} gene(s) have no CDS on file and are omitted from the CDS exports"
-                         + (f" ({n_ads - n_ad_cds} AD(s))." if n_ads > n_ad_cds else "."))
-        notes.append("Headers: `>GeneID_AD1_start-end peak_score=X.XX` (peptides), "
-                     "`>GeneID_AD1_CDS_start-end …` (CDS); AA coordinates, 1-based inclusive. "
-                     "Full CDS include the stop codon where present.")
-        st.caption(" ".join(notes))
+    export_section(df, csv_bytes, fastas)

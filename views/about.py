@@ -20,7 +20,7 @@ CONTACTS = [  # (name, role, email)
 # Markdown: the co-first-author asterisks are escaped (\*) so they render literally.
 CITATION_MD = (
     r"Kirkpatrick, L. D.\*, Sarkiss, A. E.\*, Waldburger, L., Kesselhaut, M. A., Zintel, M., Liu, S., "
-    r"Jay D. Keasling, Staller, M. V., & Shih, P. M. (2026). A genome-wide map of poplar transcription "
+    r"Keasling, J. D., Staller, M. V., & Shih, P. M. (2026). A genome-wide map of poplar transcription "
     r"factor activation domains uncovers pervasive turnover and tuning. "
     r"\[Manuscript in preparation / bioRxiv forthcoming\]. "
     + (f"DOI: [{DOI}](https://doi.org/{DOI})" if DOI else r"DOI: \[Pending submission\]")
@@ -39,7 +39,7 @@ def render():
         st.caption(r"\* These authors contributed equally.")
 
     # ---- about the project --------------------------------------------------
-    page_header("🌲", "About the Project")
+    page_header("🌳", "About the Project")
     st.markdown(
         "Interactive, genome-wide access to **activation domains (ADs)** identified across "
         "**2,466 *Populus trichocarpa* transcription factors**, with comparative analyses against "

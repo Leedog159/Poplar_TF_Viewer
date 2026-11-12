@@ -110,7 +110,7 @@ those are present. That needs `openpyxl`, which `requirements.txt` already inclu
 ## Citation
 
 > Kirkpatrick, L. D.\*, Sarkiss, A. E.\*, Waldburger, L., Kesselhaut, M. A., Zintel, M., Liu, S.,
-> Jay D. Keasling, Staller, M. V., & Shih, P. M. (2026). A genome-wide map of poplar transcription
+> Keasling, J. D., Staller, M. V., & Shih, P. M. (2026). A genome-wide map of poplar transcription
 > factor activation domains uncovers pervasive turnover and tuning. \[Manuscript in preparation /
 > bioRxiv forthcoming\]. DOI: \[Pending submission\]
 >

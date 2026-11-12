@@ -113,6 +113,9 @@ class TFData:
         ptr["species"] = "Poplar"
         ath["species"] = "Arabidopsis"
         self.preds = pd.concat([ptr, ath], ignore_index=True)
+        # Activator flag (>= 1 called AD) for list filtering; same rule as call_ads, without
+        # building every TFRecord.
+        self.preds["has_ad"] = [bool(_ad_runs(np.asarray(p, dtype=float))) for p in self.preds.preds]
 
         self._records: dict[int, TFRecord] = {}
         # Case-insensitive lookup by gene ID or protein ID -> row index
@@ -175,8 +178,21 @@ class TFData:
                 for sp in ["Poplar", "Arabidopsis"]}
 
     # ---- families ----------------------------------------------------------
-    def family_counts(self, species: str | None = None) -> dict[str, int]:
-        df = self.preds if species is None else self.preds[self.preds.species == species]
+    def _filtered(self, species: str | None = None, family: str | None = None,
+                  activator: bool | None = None) -> pd.DataFrame:
+        """preds rows matching every given filter (None = no filter); filters combine with AND."""
+        df = self.preds
+        if species is not None:
+            df = df[df.species == species]
+        if family is not None:
+            df = df[df.family == family]
+        if activator is not None:
+            df = df[df.has_ad == activator]
+        return df
+
+    def family_counts(self, species: str | None = None, activator: bool | None = None) -> dict[str, int]:
+        """family -> number of TFs, only families with >= 1 TF matching the filters."""
+        df = self._filtered(species, activator=activator)
         return dict(sorted(df.family.value_counts().items(), key=lambda kv: kv[0].lower()))
 
     # ---- orthogroups -------------------------------------------------------
@@ -412,13 +428,9 @@ class TFData:
         return pd.DataFrame(rows)
 
     # ---- listing -----------------------------------------------------------
-    def gene_ids(self, species: str | None = None, family: str | None = None) -> list[str]:
-        df = self.preds
-        if species is not None:
-            df = df[df.species == species]
-        if family is not None:
-            df = df[df.family == family]
-        return sorted(df.gene_ID.tolist())
+    def gene_ids(self, species: str | None = None, family: str | None = None,
+                 activator: bool | None = None) -> list[str]:
+        return sorted(self._filtered(species, family, activator).gene_ID.tolist())
 
     def has(self, gene_or_protein_id: str) -> bool:
         return gene_or_protein_id.strip().upper() in self._lookup
@@ -668,27 +680,30 @@ def _place_tiles(seq: str, positions, tile_seqs, activities) -> pd.DataFrame:
     return pd.DataFrame(rows, columns=["start", "end", "activity", "tile_seq", "placement"])
 
 
+def _ad_runs(preds, threshold: float = AD_THRESHOLD, min_len: int = AD_MIN_LEN) -> list[tuple[int, int]]:
+    """0-based half-open [s0, e0) runs where preds >= threshold, at least `min_len` residues long."""
+    above = np.concatenate([[False], np.asarray(preds) >= threshold, [False]])
+    edges = np.flatnonzero(np.diff(above.astype(np.int8)))
+    return [(int(s0), int(e0)) for s0, e0 in zip(edges[::2], edges[1::2]) if e0 - s0 >= min_len]
+
+
 def call_ads(preds: np.ndarray, seq: str,
              threshold: float = AD_THRESHOLD, min_len: int = AD_MIN_LEN) -> pd.DataFrame:
     """Contiguous runs where preds >= threshold, at least `min_len` residues long."""
-    above = np.concatenate([[False], np.asarray(preds) >= threshold, [False]])
-    edges = np.flatnonzero(np.diff(above.astype(np.int8)))
     rows = []
-    for s0, e0 in zip(edges[::2], edges[1::2]):  # 0-based half-open [s0, e0)
-        if e0 - s0 >= min_len:
-            seg = preds[s0:e0]
-            rows.append({
-                "AD": f"AD{len(rows) + 1}",
-                "Start": int(s0 + 1),
-                "End": int(e0),
-                "Length": int(e0 - s0),
-                "Peak Score": round(float(seg.max()), 3),
-                "Mean Score": round(float(seg.mean()), 3),
-                "Sequence": seq[s0:e0],
-            })
+    for s0, e0 in _ad_runs(preds, threshold, min_len):
+        seg = preds[s0:e0]
+        rows.append({
+            "AD": f"AD{len(rows) + 1}",
+            "Start": s0 + 1,
+            "End": e0,
+            "Length": e0 - s0,
+            "Peak Score": round(float(seg.max()), 3),
+            "Mean Score": round(float(seg.mean()), 3),
+            "Sequence": seq[s0:e0],
+        })
     return pd.DataFrame(rows, columns=["AD", "Start", "End", "Length",
                                        "Peak Score", "Mean Score", "Sequence"])
-
 
 if __name__ == "__main__":
     import time

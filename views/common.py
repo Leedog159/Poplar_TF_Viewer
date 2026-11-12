@@ -55,6 +55,8 @@ _CSS = """
 .tf-row .v { font-size: .9rem; font-weight: 600; }
 .legend-row { display: flex; flex-wrap: wrap; gap: .3rem 1.1rem; font-size: .82rem; opacity: .85; margin-bottom: .2rem; }
 .legend-row .sw { display: inline-block; vertical-align: middle; margin-right: .35rem; }
+.atlas-footer { color: #888; font-size: .75rem; margin-top: 2.5rem; padding-top: .6rem;
+                border-top: 1px solid rgba(128,128,128,.18); }
 </style>
 """
 
@@ -65,10 +67,20 @@ def inject_css() -> None:
 
 def render_header() -> None:
     st.markdown(
-        '<div class="atlas-header"><div class="t">🌲 Poplar TF Activation Domain Atlas</div>'
+        '<div class="atlas-header"><div class="t">🌳 Poplar TF Activation Domain Atlas</div>'
         '<div class="s">Genome-wide activation domain identification across <i>Populus trichocarpa</i> '
         'and <i>Arabidopsis thaliana</i> transcription factors.</div></div>',
         unsafe_allow_html=True)
+
+
+FOOTER_CITATION = ("Citation: Kirkpatrick, L. D.*, Sarkiss, A. E.*, et al. (2026) — "
+                   "Poplar TF Activation Domain Atlas.")
+
+
+def render_footer() -> None:
+    """One-line muted citation at the bottom of every page (called from app.py after the page)."""
+    text = FOOTER_CITATION.replace("*", "&#42;")  # literal asterisks, never Markdown emphasis
+    st.markdown(f'<div class="atlas-footer">{text}</div>', unsafe_allow_html=True)
 
 
 def page_header(icon: str, title: str, badge: str | None = None, subtitle: str | None = None) -> None:
@@ -170,13 +182,62 @@ def bulk_results(tokens: tuple[str, ...]):
 
 
 @st.cache_data(show_spinner=False)
-def family_counts(species: str) -> dict[str, int]:
-    return load_data().family_counts(species)
+def family_counts(species: str | None, activator: bool | None = None) -> dict[str, int]:
+    return load_data().family_counts(species, activator)
 
 
 @st.cache_data(show_spinner=False)
-def gene_ids(species: str | None, family: str | None) -> list[str]:
-    return load_data().gene_ids(species, family)
+def gene_ids(species: str | None, family: str | None, activator: bool | None = None) -> list[str]:
+    return load_data().gene_ids(species, family, activator)
+
+
+# ---- "Filter by Activity" (TF Viewer + Orthogroup Viewer) -----------------------
+ACTIVITY_ALL = "All"
+ACTIVITY_FILTERS = {ACTIVITY_ALL: None, "Activators only": True, "Non-activators only": False}
+
+
+def activity_matches(choice: str, rec) -> bool:
+    want = ACTIVITY_FILTERS.get(choice)
+    return want is None or bool(len(rec.ads)) == want
+
+
+# ---- CSV / FASTA export block (Bulk Lookup + Orthogroup Viewer) -----------------
+FASTA_BUTTONS = [  # (kind, label, filename)
+    ("ad_aa", "Download AD Peptides (FASTA)", "ad_peptides.fasta"),
+    ("ad_cds", "Download AD CDS (FASTA)", "ad_cds.fasta"),
+    ("protein", "Download Full TF Proteins (FASTA)", "tf_proteins.fasta"),
+    ("cds", "Download Full TF CDS (FASTA)", "tf_cds.fasta"),
+]
+
+
+def export_section(df, csv_bytes: bytes, fastas: dict[str, str], file_prefix: str = "") -> None:
+    """Summary CSV button + FASTA downloads for a bulk_results() payload.
+
+    `file_prefix` is prepended to every download file name (contents are unaffected)."""
+    st.download_button("📥 Download Summary CSV", csv_bytes, file_name=f"{file_prefix}tf_ad_summary.csv",
+                       mime="text/csv", type="secondary",
+                       help="All columns, including full untruncated sequence columns.")
+
+    with st.expander("📥 FASTA Sequence Downloads", expanded=True):
+        cols = st.columns(2)
+        for i, (kind, label, fname) in enumerate(FASTA_BUTTONS):
+            text_ = fastas[kind]
+            n = text_.count(">")
+            cols[i % 2].download_button(f"{label} · {n}", text_.encode(), file_name=f"{file_prefix}{fname}",
+                                        mime="text/plain", disabled=not text_, width="stretch",
+                                        key=f"dl_{kind}")
+        n_ads, n_ad_cds = fastas["ad_aa"].count(">"), fastas["ad_cds"].count(">")
+        n_cds_missing = int((~df.CDS_Available).sum())
+        notes = []
+        if not n_ads:
+            notes.append("No ADs were called in the matched genes, so the AD exports are empty.")
+        if n_cds_missing:
+            notes.append(f"{n_cds_missing} gene(s) have no CDS on file and are omitted from the CDS exports"
+                         + (f" ({n_ads - n_ad_cds} AD(s))." if n_ads > n_ad_cds else "."))
+        notes.append("Headers: `>GeneID_AD1_start-end peak_score=X.XX` (peptides), "
+                     "`>GeneID_AD1_CDS_start-end …` (CDS); AA coordinates, 1-based inclusive. "
+                     "Full CDS include the stop codon where present.")
+        st.caption(" ".join(notes))
 
 
 # ---- widget-state persistence across pages -------------------------------------
